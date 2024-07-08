@@ -11,7 +11,7 @@ COPY pyproject.toml poetry.lock ./
 # Install dependencies
 RUN poetry config virtualenvs.create false && poetry install --no-dev
 
-COPY pyproject.toml poetry.lock ./
+# COPY pyproject.toml poetry.lock ./
 COPY app ./app
 
 # Second stage: runtime stage
@@ -31,7 +31,7 @@ RUN pip install --no-cache-dir \
 
 COPY --from=build-backend /app /app
 
-COPY . .
+# COPY . .
 
 EXPOSE 8000
 

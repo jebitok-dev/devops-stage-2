@@ -1,7 +1,7 @@
 # Dockerfile for React app
 
 # Step 1: Build the React app
-FROM node:18-bookworm-slim AS build
+FROM node:18 AS build
 WORKDIR /app
 COPY package.json ./
 COPY package-lock.json ./

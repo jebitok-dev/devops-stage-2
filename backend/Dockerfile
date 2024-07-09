@@ -1,5 +1,5 @@
-# Dockerfile for FastAPI app
-FROM python3.10-slim-buster AS build-backend
+# First stage: build stage
+FROM python:3.11-slim-bullseye AS build-backend
 
 WORKDIR /app
 
@@ -11,11 +11,10 @@ COPY pyproject.toml poetry.lock ./
 # Install dependencies
 RUN poetry config virtualenvs.create false && poetry install --no-dev
 
-# COPY pyproject.toml poetry.lock ./
 COPY app ./app
 
 # Second stage: runtime stage
-FROM python:3.10-slim-buster AS runtime
+FROM python:3.11-slim-bullseye AS runtime
 
 WORKDIR /app
 
@@ -27,11 +26,8 @@ RUN pip install --no-cache-dir \
     psycopg2-binary==2.8.6 \
     pydantic==1.8.2
 
-# RUN poetry config virtualenvs.create false && poetry install --only main
-
+# Copy the dependencies and application code from the build stage
 COPY --from=build-backend /app /app
-
-# COPY . .
 
 EXPOSE 8000
 

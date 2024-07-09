@@ -31,7 +31,7 @@ services:
       - ./backend/.env
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.backend.rule=Host(`api.jebitok.strangled.net`)"
+      - "traefik.http.routers.backend.rule=Host(`api.jebitok.strangled.net`) && PathPrefix(`/api`, `/docs`, `/redoc`)"
       - "traefik.http.routers.backend.entrypoints=web"
       - "traefik.http.routers.backend.entrypoints=websecure"
       - "traefik.http.routers.backend.tls.certresolver=myresolver"
@@ -58,6 +58,7 @@ services:
       - "traefik.http.routers.adminer.entrypoints=web"
       - "traefik.http.routers.adminer.entrypoints=websecure"
       - "traefik.http.routers.adminer.tls.certresolver=myresolver"
+      - "traefik.http.services.adminer.loadbalancer.server.port=8080"
     environment:
       ADMINER_DEFAULT_SERVER: db
 
@@ -74,7 +75,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8090:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./letsencrypt:/letsencrypt
@@ -83,6 +83,7 @@ services:
       - "traefik.http.routers.traefik.rule=Host(`proxy.jebitok.strangled.net`)"
       - "traefik.http.routers.traefik.service=api@internal"
       - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.loadbalancer.server.port=8080"
       - "traefik.http.services.traefik.middlewares=redirect-to-https@docker,redirect-to-non-www@docker"
 
 volumes:

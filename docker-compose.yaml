@@ -2,34 +2,43 @@ version: '3.8'
 
 services:
   traefik:
-    image: traefik:v2.10
+    image: traefik:v2.5
     command:
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--entrypoints.web.address=:80"
-      - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.websecure.address=:443"
-      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=youremail@example.com"
+      - "--certificatesresolvers.myresolver.acme.dnsChallenge=true"
+      - "--certificatesresolvers.myresolver.acme.dnsChallenge.provider=route53"
+      - "--certificatesresolvers.myresolver.acme.dnsChallenge.delayBeforeCheck=0"
+      - "--certificatesresolvers.myresolver.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory"
+      - "--certificatesresolvers.myresolver.acme.email="
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.dnsChallenge.resolvers=1.1.1.1:53,8.8.8.8:53"
+      - "--certificatesresolvers.myresolver.acme.dnsChallenge.route53.hostedZoneID=${hosted_zone_id}"
+      - "--ping=true"
+      - "--log.level=DEBUG"
+    environment:
+      - ${AWS_ACCESS_KEY_ID}
+      - ${AWS_SECRET_ACCESS_KEY}
+      - ${AWS_REGION}
     ports:
       - "80:80"
       - "443:443"
+      - "8080:8080"
     volumes:
       - ./letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    env_file:
+      - ./.env
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.rule=Host(`proxy.jebitok.strangled.net`)"
       - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.entrypoints=websecure"
-      - "traefik.http.routers.traefik.tls.certresolver=myresolver"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      - "traefik.http.middlewares.redirect-to-non-www.redirectregex.regex=^https://www.(.*)"
-      - "traefik.http.middlewares.redirect-to-non-www.redirectregex.replacement=https://$1"
-      - "traefik.http.middlewares.redirect-to-non-www.permanent=true"
-      # - "traefik.http.routers.traefik.loadbalancer.server.port=8080"
-      - "traefik.http.services.traefik.middlewares=redirect-to-https@docker,redirect-to-non-www@docker"
+      - "traefik.http.routers.traefik.entrypoints=web"
+      - "traefik.http.routers.traefik.tls.certresolver=route53"
+      - "traefik.http.routers.traefik.loadbalancer.server.port=8080"
+      # - "traefik.http.services.traefik.middlewares=redirect-to-https@docker,redirect-to-non-www@docker"
   
   frontend:
     build:
@@ -42,17 +51,12 @@ services:
     environment:
       - NODE_ENV=development
     ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-    # command: ["npm", "run", "dev"]
+      - "3000:80"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.frontend.rule=Host(`jebitok.strangled.net`)"
-      - "traefik.http.routers.frontend.entrypoints=web"
-      - "traefik.http.routers.frontend.middlewares=redirect-to-https"
       - "traefik.http.routers.frontend.entrypoints=websecure"
-      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      - "traefik.http.routers.frontend.tls.certresolver=route53"
       - "traefik.http.services.frontend.loadbalancer.server.port=80"
 
   backend:
@@ -61,12 +65,13 @@ services:
       dockerfile: Dockerfile
     env_file:
       - ./backend/.env
+    ports:
+      - "8000:8000"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.backend.rule=Host(`api.jebitok.strangled.net`) && PathPrefix(`/api`, `/docs`, `/redoc`)"
-      - "traefik.http.routers.backend.entrypoints=web"
       - "traefik.http.routers.backend.entrypoints=websecure"
-      - "traefik.http.routers.backend.tls.certresolver=myresolver"
+      - "traefik.http.routers.backend.tls.certresolver=route53"
       - "traefik.http.services.backend.loadbalancer.server.port=8000"
     depends_on:
       - db
@@ -78,8 +83,12 @@ services:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: changethis123
       POSTGRES_DB: app
+    env_file:
+      - ./backend/.env
     volumes:
       - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
 
   adminer:
     image: adminer:latest
@@ -87,10 +96,8 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.adminer.rule=Host(`db.jebitok.strangled.net`)"
-      - "traefik.http.routers.adminer.entrypoints=web"
-      - "traefik.http.routers.adminer.middlewares=redirect-to-https"
-      - "traefik.http.routers.adminer.entrypoints=websecure"
-      - "traefik.http.routers.adminer.tls.certresolver=myresolver"
+      - "traefik.http.routers.adminer.entrypoints=web,websecure"
+      - "traefik.http.routers.adminer.tls.certresolver=route53"
       - "traefik.http.services.adminer.loadbalancer.server.port=8080"
     environment:
       ADMINER_DEFAULT_SERVER: db

@@ -1,43 +1,21 @@
-# First stage: build stage
-FROM python:3.11-slim-bullseye AS build-backend
+FROM python:3.11-slim-bullseye
 
 WORKDIR /app
 
-# Install build dependencies 
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
-    libpq-dev 
-
-RUN pip install poetry
-
-# Copy the project files
-COPY pyproject.toml poetry.lock ./
-
-# Install dependencies
-RUN poetry config virtualenvs.create false && poetry install --no-dev
-
-COPY app ./app
-
-# Second stage: runtime stage
-FROM python:3.11-slim-bullseye AS runtime
-
-WORKDIR /app
-
-# Install needed packages directly
-RUN apt-get update && apt-get install -y \
     libpq-dev \
-    gcc
+    && rm -rf /var/lib/apt/lists/*
 
-# Install needed packages directly
-RUN pip install --no-cache-dir \
-    fastapi==0.65.2 \
-    uvicorn==0.13.4 \
-    sqlalchemy==1.4.15 \
-    psycopg2-binary==2.8.6 \
-    pydantic==1.8.2
+# Copy requirements file
+COPY requirements.txt .
 
-# Copy the dependencies and application code from the build stage
-COPY --from=build-backend /app /app
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy project
+COPY . .
 
 EXPOSE 8000
 
